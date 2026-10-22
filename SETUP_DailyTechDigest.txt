@@ -1,45 +1,67 @@
-DAILY TECH DIGEST + PROMPT ENGINEERING LAB — SETUP NOTES
+DAILY TECH DIGEST — UPDATED CODE.GS SETUP
+Version: 22 October 2026
 
-WHAT CHANGED
-- The email now includes a Prompt Engineering Lab section near the top, after the three key news highlights.
-- It cycles through 25 practical techniques, one per day, including reusable copy/paste prompts, a use case, an example, and a mini-challenge.
-- The lesson is stored directly in Code.gs and does not require another API, another API call, another key, or a paid service. It still appears when Gemini is unavailable and the email uses RSS fallback.
-- Prompt Engineering & Context Design has also been added as a technology news topic.
-- The main news summarization prompt has a short few-shot accuracy example to help preserve release-status qualifiers.
-- The code leaves Gemini 3.8+ generation settings at model defaults instead of setting custom temperature, following current official Gemini guidance for newer models.
+WHAT THIS VERSION INCLUDES
+- Broad daily coverage across 17 areas: AI models, AI products, developer tools/coding agents, open source/GitHub, research, prompt/context engineering, agent evaluations/workflows, cybersecurity/privacy, Big Tech/startups, data science/ML/data engineering, cloud/databases/APIs, web/mobile, hardware/robotics, policy, India tech/startups, automation/project ideas, and consumer devices/telecom.
+- Google News RSS across US, UK and India English editions, plus direct RSS/Atom feeds from primary sources and specialist technology outlets.
+- A target of 15–20 distinct high-value stories; it deliberately sends fewer if there is not enough fresh, useful news.
+- Top 3 developments, Builder's Corner, the rotating Prompt Engineering Lab lesson, and a separate Prompt Engineering Radar that only appears when a recent, non-repeated development passes the rules.
+- Recent-story and near-identical headline history, short RSS caching, batched fetches, bounded Gemini retries, and an RSS-only fallback if Gemini is unavailable.
+- Multiple recipients: first address in To, additional addresses in BCC.
+- Daily trigger around 8:00–9:00 AM Asia/Kolkata.
 
-HOW TO UPDATE
-1. Open https://script.google.com/ and open the existing Daily Tech Digest project.
-2. Back up the current Code.gs to a local text file.
-3. Replace all contents of Code.gs with the downloaded updated Code.gs and save.
-4. Keep your existing GEMINI_API_KEY in Project Settings > Script Properties. Do not put it into source code.
-5. Keep the project time zone set to Asia/Kolkata.
-6. Select testPromptEngineeringLab() and click Run. This test does not call Gemini, fetch RSS, or send an email. Expect a PASS log and today's lesson title.
-7. Then run testGeminiConnection(), testRssFetch(), and testDigestNow() in that order. The last function sends a preview email.
-8. Review the email. The Prompt Engineering Lab should appear after “Today’s 3 key developments” and before Builder’s Corner/news stories.
-9. Your existing daily trigger should continue to work because sendDailyDigest remains the handler. Do not install another trigger unless the Triggers page shows no sendDailyDigest trigger.
+IMPORTANT LIMITATIONS
+- The code was checked for JavaScript syntax and local logic tests (Radar rules, lesson rendering, recent-event duplicate checking, recipient parsing, and HTML/plain-text rendering) passed in a local test harness.
+- It has NOT been run inside your Google Apps Script account. Live RSS availability, account permissions, your API key, Gemini quota/access and actual email delivery must still be tested in Apps Script.
+- RSS feeds generally provide headlines/excerpts, not complete articles. The digest does not read or verify the full text of every linked article.
+- Prompt Engineering Radar is conservative and heuristic. It can miss a genuinely new development or occasionally include an imperfect match; it is not a guarantee of complete monitoring.
+- Free-tier model access and usage limits can vary by model, project and current Google policy. Check AI Studio usage/limits. Google currently lists gemini-3.8-flash and gemini-3.5-flash-lite in its model catalogue and pricing page, but the test function in your own project is the practical check: https://ai.google.dev/gemini-api/docs/models and https://ai.google.dev/gemini-api/docs/pricing
+- Gemini API free-tier data may be used to improve Google's products. This workflow sends public headlines and short RSS excerpts; do not add private or sensitive content to the Gemini prompt.
+- No Google Search grounding is used by this script. It uses RSS discovery and does not add a paid service.
 
-WHAT THE SECTION TEACHES
-Task/context/constraints/format; few-shot examples; source grounding; decomposition and chaining; output structure; acceptance criteria; trade-offs; critique and revision; debugging; scoped code changes; data analysis; research evidence; agent checkpoints; untrusted input boundaries; audience/depth; prompt testing; image analysis; bounded clarification; uncertainty labels; context prioritization; learning loops; reusable variables; source-based comparison; concise outputs; plan-before-action workflows.
+INSTALL OR UPDATE
+1. Open your existing Google Apps Script project.
+2. Make a backup of your existing Code.gs first (copy it into a local text file).
+3. Open Code.gs, select all existing code, and replace it with the full contents of the supplied updated Code.gs file. Save.
+4. In Project Settings, set the project time zone to Asia/Kolkata.
+5. Open Project Settings > Script Properties and add:
+   GEMINI_API_KEY = your Gemini API key
+   RECIPIENT_EMAILS = address1@example.com,address2@example.com
+   RECIPIENT_EMAILS is optional if the existing RECIPIENT_EMAIL property or CONFIG fallback is already correct. Use comma or semicolon separators. The first recipient is placed in To and the rest in BCC. RECIPIENT_EMAILS takes priority over the legacy singular RECIPIENT_EMAIL property.
+6. Keep the API key in Script Properties, not in the source code. Do not paste your API key into chat or logs.
 
-OFFICIAL REFERENCE MATERIAL
-Google Gemini prompt design strategies: https://ai.google.dev/gemini-api/docs/prompting-strategies
-Gemini structured outputs: https://ai.google.dev/gemini-api/docs/structured-output
-Gemini model catalog: https://ai.google.dev/gemini-api/docs/models
+TEST IN THIS ORDER
+1. Select testPromptEngineeringLab and click Run. This verifies lesson selection and rendering locally without fetching news, calling Gemini or sending an email.
+2. Select testPromptEngineeringRadarRules and click Run. This checks recent-development, stale-item and evergreen-content rules without network calls.
+3. Select testGeminiConnection and click Run. This calls Gemini and checks the primary model, then the fallback if needed. A 503 usually indicates temporary capacity; a 429 may indicate a rate limit or quota. Review the execution log and the AI Studio usage page.
+4. Select testRssFetch and click Run. This fetches a bounded subset of Google News and direct feeds. It does not send email.
+5. Select testDigestNow and click Run. THIS SENDS A TEST EMAIL with [TEST] in the subject. It does not save story history or advance the Prompt Engineering Lab lesson.
+6. Inspect the received email. Check source links, story quality, the Prompt Engineering Radar (only if a qualifying new event is found), the daily lesson and Builder's Corner.
+7. In Apps Script, open Triggers and confirm whether a sendDailyDigest trigger already exists. If testing is successful and no working trigger exists, select installDailyTrigger and click Run once. That function removes existing sendDailyDigest triggers and creates one daily trigger, so running it again resets the trigger rather than creating duplicates.
+8. Review the Executions page after the first scheduled run. It is scheduled for approximately 8:00–9:00 AM IST, not an exact minute.
 
-NOTES / LIMITATIONS
-- The Prompt Engineering Lab is a curated learning rotation, not a daily news report. The separate Prompt Engineering & Context Design feed provides current-news coverage when RSS has relevant items.
-- Prompt techniques improve consistency but do not guarantee correctness. Test prompts with representative normal, ambiguous, and edge-case inputs.
-- News summaries are based on Google News RSS headlines and excerpts, not guaranteed full-article verification. Verify important product-release and security claims at their linked sources.
-- The daily trigger time is approximate (08:00–09:00 Asia/Kolkata), not an exact minute.
-- Static syntax checks cannot prove that Google Apps Script, Gmail permissions, RSS, or Gemini will work in every live run.
+USEFUL FUNCTIONS
+- testPromptEngineeringLab() — local lesson/render test only.
+- testPromptEngineeringRadarRules() — local Radar rules test only.
+- testGeminiConnection() — tests Gemini access.
+- testRssFetch() — fetches a bounded RSS preview; no email.
+- testDigestNow() — sends one test email; no history update.
+- sendDailyDigest() — main scheduled handler; normally let the trigger call this.
+- installDailyTrigger() — installs/resets the daily trigger.
+- removeDailyTrigger() — pauses scheduled delivery by removing this script's daily digest trigger.
 
-MULTIPLE EMAIL RECIPIENTS
-- The current Code.gs supports multiple addresses separated by commas, semicolons, or new lines.
-- Edit CONFIG.RECIPIENT_EMAIL, for example:
-  RECIPIENT_EMAIL: 'you@example.com, teammate@example.com',
-- If a Script Property named RECIPIENT_EMAIL already exists, it overrides CONFIG.RECIPIENT_EMAIL. Update that property too, or remove it if you want the value in Code.gs to apply.
-- The first address appears in the To field. Additional addresses are added as BCC so they are hidden from one another.
-- Before sending an email, select testRecipientConfiguration() and run it. It logs the unique recipient count and masked addresses without sending a message.
-- Then run testDigestNow() to send the preview to every configured recipient.
-- Apps Script quotas count recipients, not just email send operations. For example, a daily digest sent to 4 addresses consumes quota for 4 recipients; failure alerts can use additional quota. Check current quota documentation: https://developers.google.com/apps-script/guides/services/quotas
+IF YOU GET AN ERROR
+- Gemini model/access/limits: open https://aistudio.google.com/ and review API usage/limits and the selected project's API key.
+- Apps Script execution: Extensions / Apps Script > Executions; open the latest failed run and inspect the first error.
+- RSS errors: an individual feed can fail and be skipped. If every feed fails, check the execution log and rerun testRssFetch later.
+- 503/UNAVAILABLE: temporary server capacity can cause it; the code has bounded retries and falls back to RSS headlines if curation fails.
+- 429/quota: check project/model limits in AI Studio rather than repeatedly rerunning the script.
+- Email not received: check spam/promotions, verify RECIPIENT_EMAILS, and check MailApp remaining quota in the execution log.
+
+FREE-TIER DESIGN CHOICES
+- One primary Gemini curation call on a normal successful run; a fallback model is only tried when the primary fails.
+- RSS feeds are collected in batches and short-lived responses are cached for 15 minutes.
+- No extra Gemini call is required for the rotating lesson.
+- The Radar uses the same candidate batch and same Gemini curation request, then applies local freshness/repetition checks; it does not call Gemini separately.
+- RSS-only output remains possible if Gemini is not configured or temporarily unavailable.
+- Daily quotas and model access are controlled by Google and can change. See https://developers.google.com/apps-script/guides/services/quotas
