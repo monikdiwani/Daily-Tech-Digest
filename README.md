@@ -62,16 +62,17 @@ The digest collects stories across both **Global** and **India** editions for:
 1. Open your browser and navigate to [script.google.com](https://script.google.com/).
 2. Click **New project** (top-left).
 3. In the top-left corner, rename the project from *Untitled project* to **Daily Tech Digest**.
+4. In **Project Settings** (gear icon), confirm the time zone is set to **Asia/Kolkata** (`(GMT+05:30) India Standard Time`).
 
 ---
 
 ### Step 3: Paste the Script Code
 1. In the Apps Script editor, open the existing file `Code.gs` (or create a file named `DailyTechDigest.gs`).
 2. Delete any boilerplate code inside the editor.
-3. Open `DailyTechDigest.gs` from this workspace, copy the entire contents, and paste them into the Apps Script editor.
-4. At the top of the script, set your email address in `CONFIG.RECIPIENT_EMAIL`:
+3. Open `DailyTechDigest.gs` from this repository, copy the entire contents, and paste them into the Apps Script editor.
+4. Verify your email address in `CONFIG.RECIPIENT_EMAIL`:
    ```javascript
-   RECIPIENT_EMAIL: 'yourname@gmail.com',
+   RECIPIENT_EMAIL: 'your-email@gmail.com',
    ```
 5. Click the **Save** icon (floppy disk) or press `Ctrl + S` (`Cmd + S` on Mac).
 
@@ -87,7 +88,7 @@ Script Properties store secrets securely in your private Apps Script account so 
    * **Value**: *(Paste your Gemini API key from Step 1)*
 5. Click **Save script properties**.
 
-*(Optional)*: If you prefer not to hardcode your email in the script, you can also add a script property named `RECIPIENT_EMAIL` with your email address as the value.
+*(Optional)*: If you prefer not to keep your email in the code, you can also add a script property named `RECIPIENT_EMAIL` with your email address as the value.
 
 ---
 
@@ -105,7 +106,7 @@ Back in the Apps Script editor (`< > Editor` tab in the left sidebar), select an
 #### 2. Verify Google News RSS Feeds
 * Select `testRssFetch` from the function dropdown.
 * Click **Run**.
-* Inspect the log. It should show 22/22 feeds read, total unique articles collected (~80–120), and sample headlines.
+* Inspect the log. It should show feeds read, total unique articles collected (~80–120), and sample headlines.
 
 #### 3. Send a Test Digest Immediately
 * Select `testDigestNow` from the function dropdown.
@@ -179,9 +180,17 @@ If you ever go on vacation or want to pause the daily emails:
 
 ---
 
-## Workspace Files
+## Repository Files
 
 * `DailyTechDigest.gs`: Complete Google Apps Script file for copy-pasting into Google Apps Script.
-* `README.md`: Setup, configuration, architecture, and troubleshooting documentation.
-#   D a i l y - T e c h - D i g e s t  
- 
+* `SETUP_DailyTechDigest.txt`: Setup checklist and architecture reference.
+* `README.md`: Complete setup, configuration, architecture, and troubleshooting documentation.
+
+---
+
+## Official Documentation & References
+
+* [Google Gemini Prompting Strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies)
+* [Gemini Structured Outputs Guide](https://ai.google.dev/gemini-api/docs/structured-output)
+* [Gemini Model Catalog](https://ai.google.dev/gemini-api/docs/models)
+* [Google Apps Script Quotas](https://developers.google.com/apps-script/guides/services/quotas)

@@ -1,0 +1,45 @@
+DAILY TECH DIGEST + PROMPT ENGINEERING LAB — SETUP NOTES
+
+WHAT CHANGED
+- The email now includes a Prompt Engineering Lab section near the top, after the three key news highlights.
+- It cycles through 25 practical techniques, one per day, including reusable copy/paste prompts, a use case, an example, and a mini-challenge.
+- The lesson is stored directly in Code.gs and does not require another API, another API call, another key, or a paid service. It still appears when Gemini is unavailable and the email uses RSS fallback.
+- Prompt Engineering & Context Design has also been added as a technology news topic.
+- The main news summarization prompt has a short few-shot accuracy example to help preserve release-status qualifiers.
+- The code leaves Gemini 3.8+ generation settings at model defaults instead of setting custom temperature, following current official Gemini guidance for newer models.
+
+HOW TO UPDATE
+1. Open https://script.google.com/ and open the existing Daily Tech Digest project.
+2. Back up the current Code.gs to a local text file.
+3. Replace all contents of Code.gs with the downloaded updated Code.gs and save.
+4. Keep your existing GEMINI_API_KEY in Project Settings > Script Properties. Do not put it into source code.
+5. Keep the project time zone set to Asia/Kolkata.
+6. Select testPromptEngineeringLab() and click Run. This test does not call Gemini, fetch RSS, or send an email. Expect a PASS log and today's lesson title.
+7. Then run testGeminiConnection(), testRssFetch(), and testDigestNow() in that order. The last function sends a preview email.
+8. Review the email. The Prompt Engineering Lab should appear after “Today’s 3 key developments” and before Builder’s Corner/news stories.
+9. Your existing daily trigger should continue to work because sendDailyDigest remains the handler. Do not install another trigger unless the Triggers page shows no sendDailyDigest trigger.
+
+WHAT THE SECTION TEACHES
+Task/context/constraints/format; few-shot examples; source grounding; decomposition and chaining; output structure; acceptance criteria; trade-offs; critique and revision; debugging; scoped code changes; data analysis; research evidence; agent checkpoints; untrusted input boundaries; audience/depth; prompt testing; image analysis; bounded clarification; uncertainty labels; context prioritization; learning loops; reusable variables; source-based comparison; concise outputs; plan-before-action workflows.
+
+OFFICIAL REFERENCE MATERIAL
+Google Gemini prompt design strategies: https://ai.google.dev/gemini-api/docs/prompting-strategies
+Gemini structured outputs: https://ai.google.dev/gemini-api/docs/structured-output
+Gemini model catalog: https://ai.google.dev/gemini-api/docs/models
+
+NOTES / LIMITATIONS
+- The Prompt Engineering Lab is a curated learning rotation, not a daily news report. The separate Prompt Engineering & Context Design feed provides current-news coverage when RSS has relevant items.
+- Prompt techniques improve consistency but do not guarantee correctness. Test prompts with representative normal, ambiguous, and edge-case inputs.
+- News summaries are based on Google News RSS headlines and excerpts, not guaranteed full-article verification. Verify important product-release and security claims at their linked sources.
+- The daily trigger time is approximate (08:00–09:00 Asia/Kolkata), not an exact minute.
+- Static syntax checks cannot prove that Google Apps Script, Gmail permissions, RSS, or Gemini will work in every live run.
+
+MULTIPLE EMAIL RECIPIENTS
+- The current Code.gs supports multiple addresses separated by commas, semicolons, or new lines.
+- Edit CONFIG.RECIPIENT_EMAIL, for example:
+  RECIPIENT_EMAIL: 'you@example.com, teammate@example.com',
+- If a Script Property named RECIPIENT_EMAIL already exists, it overrides CONFIG.RECIPIENT_EMAIL. Update that property too, or remove it if you want the value in Code.gs to apply.
+- The first address appears in the To field. Additional addresses are added as BCC so they are hidden from one another.
+- Before sending an email, select testRecipientConfiguration() and run it. It logs the unique recipient count and masked addresses without sending a message.
+- Then run testDigestNow() to send the preview to every configured recipient.
+- Apps Script quotas count recipients, not just email send operations. For example, a daily digest sent to 4 addresses consumes quota for 4 recipients; failure alerts can use additional quota. Check current quota documentation: https://developers.google.com/apps-script/guides/services/quotas
