@@ -12,6 +12,7 @@
  * 4. Run testGeminiConnection(), then testRssFetch(), then testDigestNow().
  * 5. Test functions use bounded feed subsets; scheduled runs cover all topics and configured direct feeds.
  * 6. Verify the Triggers page before installing a trigger; scheduled time is approximately 08:00–09:00 IST.
+ * 7. Scheduled delivery retries after caught failures; a watchdog recovers hard timeouts. Up to 4 attempts/day.
  *
  * Security: API keys are read from Script Properties, never from this source.
  * Accuracy note: Google News RSS provides headlines/excerpts, not full articles.
@@ -23,7 +24,7 @@
 // CONFIGURATION
 // =============================================================================
 const CONFIG = {
-  RECIPIENT_EMAIL: 'example@gmail.com', // Fallback only; Script Property RECIPIENT_EMAILS can override.
+  RECIPIENT_EMAIL: 'monikdiwani@gmail.com,krupapatel8652@gmail.com', // Fallback only; Script Property RECIPIENT_EMAILS can override.
   TIMEZONE: 'Asia/Kolkata',
 
   // Confirm current model IDs in Google's model catalogue and the project's AI Studio limits.
@@ -47,7 +48,14 @@ const CONFIG = {
   MAX_API_RETRIES: 1,
   RETRY_DELAY_MS: 1800,
   MAX_OUTPUT_TOKENS: 5000,
-  MAX_EMAIL_BODY_CHARS: 150000
+  MAX_EMAIL_BODY_CHARS: 150000,
+
+  // Whole-execution recovery: 1 initial attempt + 3 retries.
+  MAX_DAILY_ATTEMPTS: 4,
+  DIGEST_RETRY_DELAY_MS: 10 * 60 * 1000,
+  // Apps Script executions may hard-timeout near 6 minutes. Schedule the watchdog
+  // 16 minutes after start so it is roughly 10 minutes after a six-minute timeout.
+  DIGEST_TIMEOUT_WATCHDOG_MS: 16 * 60 * 1000
 };
 
 const TOPICS = [
@@ -417,7 +425,169 @@ function testDigestNow() {
 }
 
 function sendDailyDigest() {
-  runWithLock_(function () { runDigest_(false); }, true);
+  runScheduledDigestAttempt_(false);
+}
+
+/**
+ * One-time retry/watchdog handler. It recovers from hard execution timeouts,
+ * which cannot be caught by try/catch inside the timed-out execution.
+ */
+function retryDailyDigest() {
+  runScheduledDigestAttempt_(true);
+}
+
+/**
+ * Runs the scheduled digest with persistent, per-day bounded retry state.
+ * The first attempt gets a 16-minute watchdog. If an ordinary error is caught,
+ * the watchdog is replaced with a retry trigger 10 minutes after that error.
+ */
+function runScheduledDigestAttempt_(isRetry) {
+  const today = getDigestDateKey_();
+  if (isDigestSentToday_()) {
+    console.log('Digest already marked as sent for ' + today + '; cancelling outstanding retry triggers.');
+    removeDigestRetryTriggers_();
+    return;
+  }
+
+  let state = loadDigestAttemptState_();
+  if (isRetry) {
+    if (!state || state.date !== today || state.status === 'sent') {
+      console.log('Retry is stale or the digest was already sent; no action taken.');
+      removeDigestRetryTriggers_();
+      return;
+    }
+    if (state.attempts >= CONFIG.MAX_DAILY_ATTEMPTS) {
+      state.status = 'failed';
+      state.updatedAt = new Date().toISOString();
+      saveDigestAttemptState_(state);
+      removeDigestRetryTriggers_();
+      sendFailureNotice_(new Error('Daily digest reached the maximum of ' + CONFIG.MAX_DAILY_ATTEMPTS + ' attempts without being marked sent. Check Apps Script → Executions.'));
+      return;
+    }
+  } else if (state && state.date === today && state.attempts > 0) {
+    console.log('A digest attempt already exists for today. The scheduled retry/watchdog will handle recovery.');
+    return;
+  }
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(25000)) {
+    // Another execution still holds the lock. Keep the retry chain alive.
+    if (!state || state.date !== today) state = { date: today, attempts: 0, status: 'waiting' };
+    state.status = 'waiting';
+    state.updatedAt = new Date().toISOString();
+    saveDigestAttemptState_(state);
+    scheduleDigestRetry_(CONFIG.DIGEST_RETRY_DELAY_MS);
+    console.warn('Digest retry postponed because another execution holds the lock.');
+    return;
+  }
+
+  try {
+    state = loadDigestAttemptState_();
+    if (!state || state.date !== today) state = { date: today, attempts: 0, status: 'new' };
+    if (isDigestSentToday_() || state.status === 'sent') {
+      removeDigestRetryTriggers_();
+      return;
+    }
+
+    // A normal daily invocation is allowed once per day. A retry increments the counter.
+    if (isRetry) state.attempts += 1;
+    else state.attempts = 1;
+    state.status = 'running';
+    state.updatedAt = new Date().toISOString();
+    state.lastError = '';
+    saveDigestAttemptState_(state);
+
+    // Install the watchdog before doing work so a hard timeout can still be recovered.
+    scheduleDigestRetry_(CONFIG.DIGEST_TIMEOUT_WATCHDOG_MS);
+
+    try {
+      runDigest_(false);
+      // runDigest_ marks delivery immediately after MailApp.sendEmail succeeds.
+      if (!isDigestSentToday_()) markDigestSent_();
+      removeDigestRetryTriggers_();
+    } catch (error) {
+      const latest = loadDigestAttemptState_();
+      // If the mail was accepted, never retry merely because post-send housekeeping failed.
+      if (isDigestSentToday_() || (latest && latest.date === today && latest.status === 'sent')) {
+        console.error('Post-send step failed, but the digest is already marked sent; no retry will be scheduled: ' + safeErrorMessage_(error));
+        removeDigestRetryTriggers_();
+        return;
+      }
+
+      state = latest && latest.date === today ? latest : state;
+      state.status = 'failed';
+      state.lastError = truncateText_(safeErrorMessage_(error), 500);
+      state.updatedAt = new Date().toISOString();
+      saveDigestAttemptState_(state);
+
+      if (state.attempts < CONFIG.MAX_DAILY_ATTEMPTS) {
+        scheduleDigestRetry_(CONFIG.DIGEST_RETRY_DELAY_MS);
+        console.warn('Digest attempt ' + state.attempts + ' failed. A retry is scheduled in about 10 minutes.');
+      } else {
+        removeDigestRetryTriggers_();
+        sendFailureNotice_(new Error('Daily digest failed after ' + state.attempts + ' attempts. Last error: ' + state.lastError));
+      }
+      throw error;
+    }
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getDigestDateKey_() {
+  return Utilities.formatDate(new Date(), CONFIG.TIMEZONE, 'yyyy-MM-dd');
+}
+
+function isDigestSentToday_() {
+  return PropertiesService.getScriptProperties().getProperty('DIGEST_SENT_DATE') === getDigestDateKey_();
+}
+
+function loadDigestAttemptState_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('DIGEST_ATTEMPT_STATE');
+  if (!raw) return null;
+  try { return JSON.parse(raw); }
+  catch (error) {
+    console.warn('Could not parse DIGEST_ATTEMPT_STATE; starting a fresh attempt state.');
+    return null;
+  }
+}
+
+function saveDigestAttemptState_(state) {
+  PropertiesService.getScriptProperties().setProperty('DIGEST_ATTEMPT_STATE', JSON.stringify(state));
+}
+
+function markDigestSent_() {
+  const props = PropertiesService.getScriptProperties();
+  const today = getDigestDateKey_();
+  props.setProperty('DIGEST_SENT_DATE', today);
+  let state = loadDigestAttemptState_();
+  if (!state || state.date !== today) state = { date: today, attempts: 1 };
+  state.status = 'sent';
+  state.updatedAt = new Date().toISOString();
+  state.lastError = '';
+  saveDigestAttemptState_(state);
+  removeDigestRetryTriggers_();
+  console.log('Digest delivery marked successful for ' + today + '.');
+}
+
+function scheduleDigestRetry_(delayMs) {
+  removeDigestRetryTriggers_();
+  ScriptApp.newTrigger('retryDailyDigest')
+    .timeBased()
+    .after(Math.max(60 * 1000, Number(delayMs) || CONFIG.DIGEST_RETRY_DELAY_MS))
+    .create();
+  console.log('Digest retry/watchdog trigger scheduled in approximately ' + Math.round(delayMs / 60000) + ' minute(s).');
+}
+
+function removeDigestRetryTriggers_() {
+  let removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'retryDailyDigest') {
+      ScriptApp.deleteTrigger(trigger);
+      removed++;
+    }
+  });
+  if (removed) console.log('Removed ' + removed + ' obsolete digest retry trigger(s).');
 }
 
 function installDailyTrigger() {
@@ -439,7 +609,9 @@ function removeDailyTrigger() {
       removed++;
     }
   });
-  Logger.log('Removed ' + removed + ' sendDailyDigest trigger(s).');
+  // Pausing delivery must also cancel any pending one-time recovery run.
+  removeDigestRetryTriggers_();
+  Logger.log('Removed ' + removed + ' sendDailyDigest trigger(s) and any pending retry trigger(s).');
 }
 
 // =============================================================================
@@ -550,6 +722,10 @@ function runDigest_(isTestMode) {
   };
   if (recipientEmails.length > 1) emailOptions.bcc = recipientEmails.slice(1).join(',');
   MailApp.sendEmail(emailOptions);
+
+  // Record delivery immediately after MailApp accepts the send. This is the
+  // primary duplicate guard if later history/lesson housekeeping fails.
+  if (!isTestMode) markDigestSent_();
 
   // Update history and lesson rotation only after successful non-test email delivery.
   if (!isTestMode) {
