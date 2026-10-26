@@ -24,7 +24,7 @@
 // CONFIGURATION
 // =============================================================================
 const CONFIG = {
-  RECIPIENT_EMAIL: 'monikdiwani@gmail.com,krupapatel8652@gmail.com', // Fallback only; Script Property RECIPIENT_EMAILS can override.
+  RECIPIENT_EMAIL: '', // Fallback only; set Script Property RECIPIENT_EMAILS instead.
   TIMEZONE: 'Asia/Kolkata',
 
   // Confirm current model IDs in Google's model catalogue and the project's AI Studio limits.

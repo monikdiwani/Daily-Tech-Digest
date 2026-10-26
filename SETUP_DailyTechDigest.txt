@@ -27,7 +27,7 @@ INSTALL OR UPDATE
 5. Open Project Settings > Script Properties and add:
    GEMINI_API_KEY = your Gemini API key
    RECIPIENT_EMAILS = address1@example.com,address2@example.com
-   RECIPIENT_EMAILS is optional if the existing RECIPIENT_EMAIL property or CONFIG fallback is already correct. Use comma or semicolon separators. The first recipient is placed in To and the rest in BCC. RECIPIENT_EMAILS takes priority over the legacy singular RECIPIENT_EMAIL property.
+   RECIPIENT_EMAILS is recommended. Use comma or semicolon separators. The first recipient is placed in To and the rest in BCC. RECIPIENT_EMAIL is supported as a legacy single-address property, but this public source repository intentionally has no recipient fallback.
 6. Keep the API key in Script Properties, not in the source code. Do not paste your API key into chat or logs.
 
 TEST IN THIS ORDER

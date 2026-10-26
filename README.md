@@ -1,196 +1,119 @@
-# Daily Tech Digest — Free Personal AI Newsletter
+# Daily Tech Digest
 
-A 100% free, automated, and serverless daily technology newsletter built with **Google Apps Script**, **Google News RSS**, the **Google Gemini API**, and **Gmail**.
+An automated personal technology briefing built with **Google Apps Script**, Google News RSS, direct RSS/Atom feeds, the Gemini API, and Gmail.
 
-Every morning between **08:00 AM and 09:00 AM IST (Asia/Kolkata)**, the script:
-1. Concurrently fetches breaking technology news across **11 core topics** from both **Global** and **India** editions.
-2. Deduplicates repeated stories against recent history stored in Script Properties.
-3. Asks the **Gemini API** (`gemini-3.8-flash` with automatic fallback to `gemini-3.5-flash`) to curate 15–20 high-value stories.
-4. Generates an executive summary, "Why it matters", and practical "Try / explore" actions for each story.
-5. Sends a polished, mobile-responsive briefing directly to your Gmail inbox.
+The script collects recent technology stories, removes duplicates, optionally uses Gemini to curate and summarize them, and sends a responsive HTML/plain-text email. A scheduled run is targeted for **08:00–09:00 Asia/Kolkata**.
 
----
+> **Status:** This repository contains the source and setup instructions. It has not been run in your Google Apps Script account. You must test your own API key, account permissions, feed availability, quotas, and email delivery.
 
-## Architecture (Why It's 100% Free)
+## What it includes
 
+- Coverage across 17 areas, including AI models and products, developer tools, open source/GitHub, research, prompt/context engineering, agent evaluations, cybersecurity, startups, data/ML, cloud/databases/APIs, web/mobile, hardware/robotics, policy, India technology, automation, and consumer devices.
+- Google News RSS editions for the US, UK, and India, supplemented by direct feeds from primary sources and specialist technology sites.
+- A target of 15–20 distinct stories. The script does not add filler when there is not enough fresh, useful news.
+- Per-story summaries, why-it-matters context, and practical actions.
+- A rotating **Prompt Engineering Lab** lesson with no additional Gemini request.
+- A conservative **Prompt Engineering Radar** that appears only when a qualifying recent development is found and has not already been reported.
+- Recent-story and near-duplicate history, short-lived RSS caching, batched fetches, bounded Gemini retries, and an RSS-only fallback when Gemini is unavailable.
+- Multiple recipients: the first address is placed in `To` and additional addresses are placed in `Bcc`.
+- A daily trigger with bounded retry and watchdog handling for transient failures.
+
+## Architecture
+
+```text
+Google News RSS + direct RSS/Atom feeds
+                    |
+                    v
+        Google Apps Script (V8)
+          |                 |
+          |                 +--> Gemini API (optional curation)
+          v
+       Gmail / MailApp
 ```
-[ Google News RSS ] ──(Parallel XML Fetch)──┐
-                                            ▼
-[ Google Apps Script (V8) ] ──(Lock & Quota Check)──► [ Gemini API (Free Tier) ]
-        │                                                    │
-        │                                             (Structured JSON)
-        ▼                                                    │
-   [ Gmail ] ◄───────────────────────────────────────────────┘
-  (Daily 8–9 AM IST)
-```
 
-* **No server required**: Runs on Google's cloud infrastructure via Google Apps Script.
-* **No paid database**: Story fingerprints are stored using Google Apps Script's built-in `PropertiesService`.
-* **No paid APIs**: Google News RSS is public and free; Google AI Studio provides a free Gemini API tier with no credit card required.
-* **No email service fees**: Uses your existing Gmail account quota (free personal accounts get 100 emails/day; this digest uses only 1).
+The workflow is serverless and uses no database or paid news service. RSS entries generally contain headlines and excerpts rather than complete articles; verify important claims at the linked source.
 
----
+## Quick setup
 
-## Covered Topics
+### 1. Create the Apps Script project
 
-The digest collects stories across both **Global** and **India** editions for:
-1. **AI & Large Language Models (LLMs)**
-2. **New AI Tools & Product Launches**
-3. **Coding Agents & Developer Tools** (e.g., Cursor, GitHub Copilot, dev tooling)
-4. **Product Updates & New Features** (OpenAI, Google, Anthropic, Microsoft, Meta)
-5. **Project Ideas & Workflow Automation** (n8n, LangChain, agent pipelines)
-6. **Open-Source Projects & Trending GitHub Repositories**
-7. **Research Papers & Breakthroughs** (arXiv, benchmark advances)
-8. **Cybersecurity** (vulnerabilities, zero-days, breaches, security patches)
-9. **Big Tech & Startups** (funding, acquisitions, strategic shifts, hardware)
-10. **Data Science, Analytics & Machine Learning** (PyTorch, vector databases, embeddings)
-11. **Cloud, Databases & Web Development** (AWS, GCP, Azure, PostgreSQL, Next.js, Kubernetes)
+1. Open [Google Apps Script](https://script.google.com/) and create or open a project.
+2. Copy the complete contents of [`DailyTechDigest.gs`](./DailyTechDigest.gs) into `Code.gs` (or keep the file name `DailyTechDigest.gs`).
+3. In **Project Settings**, set the time zone to `Asia/Kolkata`.
 
----
+### 2. Add Script Properties
 
-## Setup Guide (Step-by-Step for Beginners)
+In **Project Settings → Script Properties**, add:
 
-### Step 1: Get a Free Gemini API Key
-1. Go to [Google AI Studio](https://aistudio.google.com/).
-2. Sign in with your standard Google account.
-3. Click **Get API key** (or **Create API key**).
-4. Copy the generated key. (Keep it private; do not share or commit this key).
+| Property | Required | Value |
+|---|---:|---|
+| `GEMINI_API_KEY` | No | A Gemini API key from [Google AI Studio](https://aistudio.google.com/). |
+| `RECIPIENT_EMAILS` | Recommended | One or more addresses separated by commas or semicolons. |
+| `RECIPIENT_EMAIL` | Legacy fallback | A single address, used only when `RECIPIENT_EMAILS` is absent. |
 
----
+The code repository intentionally does not contain recipient addresses or API keys. Keep both in Script Properties and never paste them into source code, issues, or logs. If Gemini is not configured or is temporarily unavailable, the script can send an RSS-only digest.
 
-### Step 2: Create a New Google Apps Script Project
-1. Open your browser and navigate to [script.google.com](https://script.google.com/).
-2. Click **New project** (top-left).
-3. In the top-left corner, rename the project from *Untitled project* to **Daily Tech Digest**.
-4. In **Project Settings** (gear icon), confirm the time zone is set to **Asia/Kolkata** (`(GMT+05:30) India Standard Time`).
+### 3. Test in this order
 
----
+Run these functions from the Apps Script editor:
 
-### Step 3: Paste the Script Code
-1. In the Apps Script editor, open the existing file `Code.gs` (or create a file named `DailyTechDigest.gs`).
-2. Delete any boilerplate code inside the editor.
-3. Open `DailyTechDigest.gs` from this repository, copy the entire contents, and paste them into the Apps Script editor.
-4. Verify your email address in `CONFIG.RECIPIENT_EMAIL`:
-   ```javascript
-   RECIPIENT_EMAIL: 'your-email@gmail.com',
-   ```
-5. Click the **Save** icon (floppy disk) or press `Ctrl + S` (`Cmd + S` on Mac).
+1. `testPromptEngineeringLab()` — local lesson and rendering checks; no network call or email.
+2. `testPromptEngineeringRadarRules()` — local freshness, repetition, and evergreen-content checks.
+3. `testGeminiConnection()` — checks the configured model and fallback model; uses Gemini quota.
+4. `testRssFetch()` — fetches a bounded feed preview; does not send email.
+5. `testDigestNow()` — sends one test email with `[TEST]` in the subject; does not save story history or advance the lesson.
+6. Confirm the email, source links, lesson, Builder’s Corner, and any Radar section.
+7. Run `installDailyTrigger()` once after testing. It removes this script’s existing daily digest triggers before creating one, so rerunning it resets rather than duplicates the schedule.
 
----
+To pause delivery, run `removeDailyTrigger()`. The scheduled entry point is `sendDailyDigest()`.
 
-### Step 4: Add Your Gemini API Key to Script Properties
-Script Properties store secrets securely in your private Apps Script account so they never appear in plain code:
-1. In the left sidebar of the Google Apps Script editor, click the **Gear icon (Project Settings)**.
-2. Scroll down to the **Script Properties** section.
-3. Click **Add script property**.
-4. Set:
-   * **Property**: `GEMINI_API_KEY`
-   * **Value**: *(Paste your Gemini API key from Step 1)*
-5. Click **Save script properties**.
+## Function reference
 
-*(Optional)*: If you prefer not to keep your email in the code, you can also add a script property named `RECIPIENT_EMAIL` with your email address as the value.
+| Function | Purpose |
+|---|---|
+| `sendDailyDigest()` | Scheduled entry point for the daily digest. |
+| `retryDailyDigest()` | Internal retry entry point created after a transient scheduled failure. |
+| `testDigestNow()` | Full test run that sends an email without advancing history. |
+| `testGeminiConnection()` | Verifies Gemini access and fallback behavior. |
+| `testRssFetch()` | Checks a bounded set of RSS/Atom feeds without sending email. |
+| `testPromptEngineeringLab()` | Runs local Prompt Engineering Lab checks. |
+| `testPromptEngineeringRadarRules()` | Runs local Radar rule checks. |
+| `installDailyTrigger()` | Removes this script’s old daily triggers and installs a new one. |
+| `removeDailyTrigger()` | Removes this script’s daily digest triggers. |
 
----
+## Important limitations
 
-### Step 5: Test Your Setup (One-Click Functions)
+- The digest summarizes RSS headlines and excerpts; it does not read or verify every full article.
+- Gemini selection and Prompt Engineering Radar matching are heuristic. Radar can miss a development or include an imperfect match.
+- Google controls model availability, free-tier limits, quotas, and pricing. Check the current [model documentation](https://ai.google.dev/gemini-api/docs/models) and [pricing information](https://ai.google.dev/gemini-api/docs/pricing).
+- The script does not use Google Search grounding or a paid search service.
+- The scheduled trigger runs approximately within the Apps Script one-hour window, not at an exact minute.
+- Apps Script permissions, RSS availability, API access, quota behavior, and Gmail delivery must be validated in the account where the script is installed.
 
-Back in the Apps Script editor (`< > Editor` tab in the left sidebar), select and run these functions from the dropdown menu at the top:
+## Troubleshooting
 
-#### 1. Verify Gemini API Connection
-* Select `testGeminiConnection` from the function dropdown.
-* Click **Run**.
-* *First-time permission popup*: Google will display an **"Authorization required"** window. Click **Review permissions**, select your Google account, click **Advanced**, and click **Go to Daily Tech Digest (unsafe)**. (This is standard for your own personal Apps Script code).
-* Check the **Execution log** at the bottom. You should see:
-  `SUCCESS: Gemini API is connected and responding properly.`
+### Gemini errors
 
-#### 2. Verify Google News RSS Feeds
-* Select `testRssFetch` from the function dropdown.
-* Click **Run**.
-* Inspect the log. It should show feeds read, total unique articles collected (~80–120), and sample headlines.
+Check the API key, selected Google Cloud/AI Studio project, model availability, quota, and the Apps Script **Executions** page. A `503` can indicate temporary capacity; a `429` commonly indicates a quota or rate limit. The script uses bounded retries and then falls back to RSS-only output where possible.
 
-#### 3. Send a Test Digest Immediately
-* Select `testDigestNow` from the function dropdown.
-* Click **Run**.
-* Open your Gmail inbox. Within 15–30 seconds, you will receive an email titled:
-  `[TEST] Daily Tech Digest — <Today's Date>`
-* Check both your **Inbox** and **Promotions / Updates** tabs.
+### RSS errors
 
----
+Individual feed failures are skipped. Run `testRssFetch()` and inspect the execution log. If all feeds fail, retry later and check the feed URLs and Apps Script network access.
 
-### Step 6: Install the Daily Morning Schedule
-1. In the function dropdown at the top, select `installDailyTrigger`.
-2. Click **Run**.
-3. The execution log will confirm:
-   `SUCCESS: Daily trigger installed. The newsletter will run every day between 08:00–09:00 AM (Asia/Kolkata).`
+### Email errors
 
-That's it! Your personal daily tech newsletter is now completely automated. It will run every single morning, including weekends.
+Verify `RECIPIENT_EMAILS`, check spam and Promotions/Updates folders, and review the latest execution. If a scheduled run fails, the script attempts a failure notice when the recipient configuration is available.
 
----
+## Repository files
 
-## How to Pause or Stop Delivery
+- [`DailyTechDigest.gs`](./DailyTechDigest.gs) — complete Google Apps Script source.
+- [`SETUP_DailyTechDigest.txt`](./SETUP_DailyTechDigest.txt) — detailed setup and operational checklist.
+- [`README.md`](./README.md) — project overview and quick setup.
 
-If you ever go on vacation or want to pause the daily emails:
-1. Open your Apps Script project.
-2. Select `removeDailyTrigger` from the function dropdown.
-3. Click **Run**.
-4. To restart later, simply run `installDailyTrigger` again.
+## References
 
----
-
-## Project Functions Reference
-
-| Function Name | Purpose | Saves History? |
-| :--- | :--- | :--- |
-| `sendDailyDigest()` | **Main Scheduled Runner**: Triggered automatically daily between 8–9 AM IST. Fetches news, curates with Gemini, sends email, and updates duplicate history. | Yes |
-| `testDigestNow()` | **Instant Preview**: Runs the full workflow and delivers a test email immediately. | No (preview only) |
-| `testGeminiConnection()` | **API Health Check**: Sends a small ping to verify the Gemini API key and model connectivity. | No |
-| `testRssFetch()` | **Feed Health Check**: Concurrently fetches all 22 RSS feeds and logs article counts. | No |
-| `installDailyTrigger()` | **Scheduler**: Cleans up older triggers and sets a daily 08:00–09:00 AM Asia/Kolkata trigger. | N/A |
-| `removeDailyTrigger()` | **Uninstaller**: Deletes all automated daily triggers. | N/A |
-
----
-
-## Free Tier Quotas & Limits
-
-| Service | Free Tier Limit | Daily Tech Digest Usage |
-| :--- | :--- | :--- |
-| **Gmail Daily Sends** | 100 emails / day (consumer Gmail) | 1 email / day (~1%) |
-| **Gemini API (Flash)** | 15 Requests / min, 1,500 Requests / day | 1–2 requests / day (~0.1%) |
-| **Apps Script Execution Time** | 6 minutes (360 seconds) / run | ~8–15 seconds / run (uses parallel fetch) |
-| **Apps Script UrlFetch** | 20,000 calls / day | ~22 calls / day (~0.1%) |
-| **Script Properties Storage** | 9 KB per property | ~3.5 KB rolling history (~38%) |
-
----
-
-## Troubleshooting Guide
-
-### 1. "Authorization required" or "Google hasn't verified this app"
-* **Why**: Google Apps Script prompts for permission whenever a script accesses external services (`UrlFetchApp` for RSS/Gemini and `MailApp` for Gmail).
-* **Fix**: Click **Advanced** &rarr; **Go to Daily Tech Digest (unsafe)** &rarr; **Allow**. Since you own the script and account, this is completely safe.
-
-### 2. Email arrives in "Promotions" or "Updates" tab
-* **Fix**: In Gmail, open the email, drag it into the **Primary** tab, and click **"Yes"** when Gmail asks if you want future emails to go to Primary.
-
-### 3. "Missing GEMINI_API_KEY" Error
-* **Fix**: Open **Project Settings (Gear icon)** in Apps Script &rarr; **Script Properties** &rarr; verify the property name is exactly `GEMINI_API_KEY` (case-sensitive) with no leading or trailing whitespace.
-
-### 4. "Daily trigger created, but email did not arrive"
-* Check **Executions** in the left sidebar of the Apps Script editor. Any failed runs and their exact error messages will be displayed there.
-* If a scheduled run ever fails, the script will attempt to email you a failure notice describing the error.
-
----
-
-## Repository Files
-
-* `DailyTechDigest.gs`: Complete Google Apps Script file for copy-pasting into Google Apps Script.
-* `SETUP_DailyTechDigest.txt`: Setup checklist and architecture reference.
-* `README.md`: Complete setup, configuration, architecture, and troubleshooting documentation.
-
----
-
-## Official Documentation & References
-
-* [Google Gemini Prompting Strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies)
-* [Gemini Structured Outputs Guide](https://ai.google.dev/gemini-api/docs/structured-output)
-* [Gemini Model Catalog](https://ai.google.dev/gemini-api/docs/models)
-* [Google Apps Script Quotas](https://developers.google.com/apps-script/guides/services/quotas)
+- [Google AI Studio](https://aistudio.google.com/)
+- [Gemini models](https://ai.google.dev/gemini-api/docs/models)
+- [Gemini prompting strategies](https://ai.google.dev/gemini-api/docs/prompting-strategies)
+- [Gemini structured outputs](https://ai.google.dev/gemini-api/docs/structured-output)
+- [Apps Script quotas](https://developers.google.com/apps-script/guides/services/quotas)
